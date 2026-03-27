@@ -1,6 +1,6 @@
 {
   "name": "@aashari/mcp-server-atlassian-bitbucket",
-  "version": "3.1.0",
+  "version": "1.0.0",
   "description": "Node.js/TypeScript MCP server for Atlassian Bitbucket. Enables AI systems (LLMs) to interact with workspaces, repositories, and pull requests via tools (list, get, comment, search). Connects AI directly to version control workflows through the standard MCP interface.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -10,7 +10,7 @@
     "url": "https://github.com/aashari/mcp-server-atlassian-bitbucket.git"
   },
   "bin": {
-    "mcp-atlassian-bitbucket": "./dist/index.js"
+    "mcp-bitbucket": "./dist/index.js"
   },
   "scripts": {
     "build": "tsc",
@@ -52,7 +52,7 @@
     "cli",
     "mcp-inspector"
   ],
-  "author": "Andi Ashari",
+  "author": "Roy",
   "license": "ISC",
   "devDependencies": {
     "@eslint/js": "^9.39.1",
@@ -94,6 +94,7 @@
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
     "jmespath": "^0.16.0",
+    "undici": "^7.0.0",
     "zod": "^4.3.6"
   },
   "directories": {

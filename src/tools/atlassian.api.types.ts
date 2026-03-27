@@ -32,7 +32,12 @@ const BaseApiToolArgs = {
 		.string()
 		.min(1, 'Path is required')
 		.describe(
-			'The Bitbucket API endpoint path (without base URL). Must start with "/". Examples: "/workspaces", "/repositories/{workspace}/{repo_slug}", "/repositories/{workspace}/{repo_slug}/pullrequests/{id}"',
+			'The Bitbucket API endpoint path (without base URL or version prefix). Must start with "/".\n' +
+				'Bitbucket Cloud examples (auto-prefixed with /2.0):\n' +
+				'  "/workspaces", "/repositories/{workspace}/{repo_slug}", "/repositories/{workspace}/{repo_slug}/pullrequests/{id}"\n' +
+				'Bitbucket Data Center examples (auto-prefixed with /rest/api/1.0):\n' +
+				'  "/projects", "/projects/{projectKey}/repos", "/projects/{projectKey}/repos/{repoSlug}/pull-requests/{id}"\n' +
+				'Paths already starting with "/rest/" (DC) or "/2.0" (Cloud) are used as-is.',
 		),
 
 	/**

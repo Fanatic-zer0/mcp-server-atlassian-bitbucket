@@ -1,5 +1,6 @@
 import { Logger } from './logger.util.js';
 import { config } from './config.util.js';
+import { isDataCenterMode } from './transport.util.js';
 import atlassianWorkspacesService from '../services/vendor.atlassian.workspaces.service.js';
 import { WorkspaceMembership } from '../services/vendor.atlassian.workspaces.types.js';
 
@@ -40,6 +41,17 @@ export async function getDefaultWorkspace(): Promise<string | null> {
 		);
 		cachedDefaultWorkspace = envWorkspace;
 		return envWorkspace;
+	}
+
+	// Step 3: Fetch from API (Cloud only – DC has projects, not workspaces).
+	// In Data Center mode the user must configure BITBUCKET_DEFAULT_WORKSPACE
+	// with the project key manually.
+	if (isDataCenterMode()) {
+		methodLogger.debug(
+			'Data Center mode: cannot auto-discover projects. ' +
+				'Set BITBUCKET_DEFAULT_WORKSPACE to your Bitbucket DC project key.',
+		);
+		return null;
 	}
 
 	// Step 3: Fetch from API

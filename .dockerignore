@@ -1,0 +1,43 @@
+# Dependencies
+node_modules/
+.npm
+
+# TypeScript output (rebuilt inside Docker)
+dist/
+build/
+*.tsbuildinfo
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Environment / secrets
+.env
+.env.*
+
+# Logs
+logs/
+*.log
+
+# IDE / OS files
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Docker files themselves
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# CI / docs
+.github/
+docs/
+CHANGELOG.md
+README.md

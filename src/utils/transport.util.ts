@@ -9,19 +9,89 @@ import {
 } from './error.util.js';
 import { saveRawResponse } from './response.util.js';
 
+// Configure proxy and/or TLS verification via undici's global dispatcher.
+//
+// Node's built-in fetch (undici) does NOT honour HTTP_PROXY / NODE_TLS_REJECT_UNAUTHORIZED
+// automatically, so we must call setGlobalDispatcher() synchronously at module load.
+// The require() call is intentionally synchronous (this is a CommonJS build).
+(function initNetworkDefaults(): void {
+	const proxyUrl =
+		process.env.HTTPS_PROXY ||
+		process.env.https_proxy ||
+		process.env.HTTP_PROXY ||
+		process.env.http_proxy;
+	// NODE_TLS_REJECT_UNAUTHORIZED=0 disables TLS cert verification (e.g. self-signed DC certs)
+	const rejectUnauthorized =
+		process.env.NODE_TLS_REJECT_UNAUTHORIZED !== '0';
+
+	if (proxyUrl) {
+		console.debug(`[transport] Proxy URL: ${proxyUrl}`);
+	}
+	if (!rejectUnauthorized) {
+		console.warn(
+			'[transport] TLS certificate validation is DISABLED ' +
+				'(NODE_TLS_REJECT_UNAUTHORIZED=0). Do not use this in production.',
+		);
+	}
+
+	// Only touch the dispatcher if something non-default is needed
+	if (!proxyUrl && rejectUnauthorized) return;
+
+	try {
+		// eslint-disable-next-line @typescript-eslint/no-require-imports
+		const undici = require('undici') as typeof import('undici');
+		const tlsOpts = { rejectUnauthorized };
+
+		if (proxyUrl) {
+			undici.setGlobalDispatcher(
+				new undici.ProxyAgent({
+					uri: proxyUrl,
+					requestTls: tlsOpts,
+					connect: tlsOpts,
+				}),
+			);
+		} else {
+			// TLS-only change (no proxy)
+			undici.setGlobalDispatcher(
+				new undici.Agent({ connect: tlsOpts }),
+			);
+		}
+	} catch {
+		if (proxyUrl) {
+			console.warn(
+				'[transport] "undici" package not found \u2014 proxy will NOT be used.',
+			);
+		}
+	}
+})();
+
 /**
  * Interface for Atlassian API credentials
  */
 export interface AtlassianCredentials {
-	// Standard Atlassian credentials
+	// Standard Atlassian credentials (Bitbucket Cloud – scoped API token)
 	siteName?: string;
 	userEmail?: string;
 	apiToken?: string;
-	// Bitbucket-specific credentials (alternative approach)
+	// Bitbucket Cloud legacy credentials (app password)
 	bitbucketUsername?: string;
 	bitbucketAppPassword?: string;
-	// Indicates which auth method to use
+	// Indicates which Cloud auth method to use
 	useBitbucketAuth?: boolean;
+	// Bitbucket Data Center / Server credentials
+	datacenterBaseUrl?: string;
+	bitbucketDcToken?: string; // Personal Access Token (Bearer auth)
+	bitbucketDcUsername?: string;
+	bitbucketDcPassword?: string;
+	useDataCenter?: boolean;
+}
+
+/**
+ * Returns true when the server is configured to talk to a
+ * Bitbucket Data Center / Server instance (BITBUCKET_DC_BASE_URL is set).
+ */
+export function isDataCenterMode(): boolean {
+	return !!config.get('BITBUCKET_DC_BASE_URL');
 }
 
 /**
@@ -58,6 +128,41 @@ export function getAtlassianCredentials(): AtlassianCredentials | null {
 		'getAtlassianCredentials',
 	);
 
+	// Data Center / Server takes priority when BITBUCKET_DC_BASE_URL is set
+	const dcBaseUrl = config.get('BITBUCKET_DC_BASE_URL');
+	if (dcBaseUrl) {
+		const dcToken = config.get('BITBUCKET_DC_TOKEN');
+		const dcUsername = config.get('BITBUCKET_DC_USERNAME');
+		const dcPassword = config.get('BITBUCKET_DC_PASSWORD');
+
+		if (dcToken) {
+			methodLogger.debug('Using Bitbucket Data Center credentials (PAT)');
+			return {
+				datacenterBaseUrl: dcBaseUrl,
+				bitbucketDcToken: dcToken,
+				useDataCenter: true,
+			};
+		}
+
+		if (dcUsername && dcPassword) {
+			methodLogger.debug(
+				'Using Bitbucket Data Center credentials (Basic auth)',
+			);
+			return {
+				datacenterBaseUrl: dcBaseUrl,
+				bitbucketDcUsername: dcUsername,
+				bitbucketDcPassword: dcPassword,
+				useDataCenter: true,
+			};
+		}
+
+		methodLogger.warn(
+			'BITBUCKET_DC_BASE_URL is set but no Data Center credentials found. ' +
+				'Set BITBUCKET_DC_TOKEN or both BITBUCKET_DC_USERNAME and BITBUCKET_DC_PASSWORD.',
+		);
+		// Fall through to try Cloud credentials
+	}
+
 	// First try standard Atlassian credentials (preferred for consistency)
 	const siteName = config.get('ATLASSIAN_SITE_NAME');
 	const userEmail = config.get('ATLASSIAN_USER_EMAIL');
@@ -87,9 +192,13 @@ export function getAtlassianCredentials(): AtlassianCredentials | null {
 		};
 	}
 
-	// If neither set of credentials is available, return null
+	// If no credentials are available, return null with a helpful message
 	methodLogger.warn(
-		'Missing Atlassian credentials. Please set either ATLASSIAN_SITE_NAME, ATLASSIAN_USER_EMAIL, and ATLASSIAN_API_TOKEN environment variables, or ATLASSIAN_BITBUCKET_USERNAME and ATLASSIAN_BITBUCKET_APP_PASSWORD for Bitbucket-specific auth.',
+		'Missing credentials. Set one of the following:\n' +
+			'  Bitbucket Data Center/Server: BITBUCKET_DC_BASE_URL + BITBUCKET_DC_TOKEN\n' +
+			'    or: BITBUCKET_DC_BASE_URL + BITBUCKET_DC_USERNAME + BITBUCKET_DC_PASSWORD\n' +
+			'  Bitbucket Cloud (scoped token): ATLASSIAN_USER_EMAIL + ATLASSIAN_API_TOKEN\n' +
+			'  Bitbucket Cloud (app password): ATLASSIAN_BITBUCKET_USERNAME + ATLASSIAN_BITBUCKET_APP_PASSWORD',
 	);
 	return null;
 }
@@ -111,13 +220,33 @@ export async function fetchAtlassian<T>(
 		'fetchAtlassian',
 	);
 
-	const baseUrl = 'https://api.bitbucket.org';
+	// Use Data Center base URL when in DC mode, otherwise Bitbucket Cloud
+	const baseUrl =
+		credentials.useDataCenter && credentials.datacenterBaseUrl
+			? credentials.datacenterBaseUrl.replace(/\/$/, '')
+			: 'https://api.bitbucket.org';
 
 	// Set up auth headers based on credential type
 	let authHeader: string;
 
-	if (credentials.useBitbucketAuth) {
-		// Bitbucket API uses a different auth format
+	if (credentials.useDataCenter) {
+		// Data Center: Bearer PAT or Basic auth
+		if (credentials.bitbucketDcToken) {
+			authHeader = `Bearer ${credentials.bitbucketDcToken}`;
+		} else if (
+			credentials.bitbucketDcUsername &&
+			credentials.bitbucketDcPassword
+		) {
+			authHeader = `Basic ${Buffer.from(
+				`${credentials.bitbucketDcUsername}:${credentials.bitbucketDcPassword}`,
+			).toString('base64')}`;
+		} else {
+			throw createAuthInvalidError(
+				'Missing Bitbucket Data Center credentials. Set BITBUCKET_DC_TOKEN or both BITBUCKET_DC_USERNAME and BITBUCKET_DC_PASSWORD.',
+			);
+		}
+	} else if (credentials.useBitbucketAuth) {
+		// Cloud: legacy app password
 		if (
 			!credentials.bitbucketUsername ||
 			!credentials.bitbucketAppPassword
@@ -130,7 +259,7 @@ export async function fetchAtlassian<T>(
 			`${credentials.bitbucketUsername}:${credentials.bitbucketAppPassword}`,
 		).toString('base64')}`;
 	} else {
-		// Standard Atlassian API (Jira, Confluence)
+		// Cloud: standard Atlassian scoped API token
 		if (!credentials.userEmail || !credentials.apiToken) {
 			throw createAuthInvalidError('Missing Atlassian credentials');
 		}

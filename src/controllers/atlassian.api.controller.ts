@@ -43,19 +43,29 @@ interface RequestWithBodyOptions extends BaseRequestOptions {
 }
 
 /**
- * Normalizes the API path by ensuring it starts with /2.0
+ * Normalizes the API path by prepending the correct version prefix.
+ *
+ * - Bitbucket Cloud: prepends /2.0 unless the path already starts with it.
+ * - Bitbucket Data Center: prepends /rest/api/1.0 unless the path already
+ *   starts with /rest/.
+ *
  * @param path - The raw path provided by the user
- * @returns Normalized path with /2.0 prefix
+ * @param useDataCenter - Whether the server is in Data Center mode
+ * @returns Normalized path with the appropriate prefix
  */
-function normalizePath(path: string): string {
-	let normalizedPath = path;
-	if (!normalizedPath.startsWith('/')) {
-		normalizedPath = '/' + normalizedPath;
+function normalizePath(
+	path: string,
+	useDataCenter: boolean = false,
+): string {
+	const normalizedPath = path.startsWith('/') ? path : '/' + path;
+	if (useDataCenter) {
+		return normalizedPath.startsWith('/rest/')
+			? normalizedPath
+			: '/rest/api/1.0' + normalizedPath;
 	}
-	if (!normalizedPath.startsWith('/2.0')) {
-		normalizedPath = '/2.0' + normalizedPath;
-	}
-	return normalizedPath;
+	return normalizedPath.startsWith('/2.0')
+		? normalizedPath
+		: '/2.0' + normalizedPath;
 }
 
 /**
@@ -101,7 +111,10 @@ async function handleRequest(
 		}
 
 		// Normalize path and append query params
-		let path = normalizePath(options.path);
+		let path = normalizePath(
+			options.path,
+			credentials.useDataCenter ?? false,
+		);
 		path = appendQueryParams(path, options.queryParams);
 
 		methodLogger.debug(`${method}ing: ${path}`);

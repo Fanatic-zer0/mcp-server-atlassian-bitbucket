@@ -13,8 +13,7 @@ import express from 'express';
 import cors from 'cors';
 
 // Import tools
-import atlassianApi from './tools/atlassian.api.tool.js';
-import atlassianRepositories from './tools/atlassian.repositories.tool.js';
+import bitbucketTools from './tools/bitbucket.tools.js';
 
 // Create a contextualized logger for this file
 const indexLogger = Logger.forContext('index.ts');
@@ -43,8 +42,7 @@ function createMcpServer(): McpServer {
 		version: VERSION,
 	});
 
-	atlassianApi.registerTools(server);
-	atlassianRepositories.registerTools(server);
+	bitbucketTools.registerTools(server);
 
 	return server;
 }
@@ -317,7 +315,8 @@ export async function startServer(
 
 		// Start HTTP server
 		const PORT = Number(process.env.PORT ?? 3000);
-		const HOST = '127.0.0.1'; // Explicit localhost binding for security
+		// Default to 127.0.0.1 for security; set BIND_HOST=0.0.0.0 when running in Docker
+		const HOST = process.env.BIND_HOST ?? '127.0.0.1';
 		await new Promise<void>((resolve) => {
 			httpServerInstance = app.listen(PORT, HOST, () => {
 				serverLogger.info(

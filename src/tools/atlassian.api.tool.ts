@@ -2,6 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { Logger } from '../utils/logger.util.js';
 import { formatErrorForMcpTool } from '../utils/error.util.js';
 import { truncateForAI } from '../utils/formatter.util.js';
+import { isReadOnlyMode, createReadOnlyError } from '../utils/readonly.util.js';
 import {
 	GetApiToolArgs,
 	type GetApiToolArgsType,
@@ -82,6 +83,8 @@ function createWriteHandler(
 	) => Promise<{ content: string; rawResponsePath?: string | null }>,
 ) {
 	return async (args: Record<string, unknown>) => {
+		if (isReadOnlyMode()) return createReadOnlyError();
+
 		const methodLogger = Logger.forContext(
 			'tools/atlassian.api.tool.ts',
 			methodName.toLowerCase(),
@@ -332,7 +335,10 @@ function registerTools(server: McpServer) {
 				openWorldHint: true,
 			},
 		},
-		del,
+		async (args: Record<string, unknown>) => {
+			if (isReadOnlyMode()) return createReadOnlyError();
+			return del(args);
+		},
 	);
 
 	registerLogger.debug('Successfully registered API tools');

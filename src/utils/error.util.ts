@@ -276,10 +276,16 @@ export function handleCliError(error: unknown): never {
 			'Tip: Make sure to set up your Atlassian credentials in the configuration file or environment variables:',
 		);
 		cliLines.push(
-			'- ATLASSIAN_SITE_NAME, ATLASSIAN_USER_EMAIL, and ATLASSIAN_API_TOKEN; or',
+			'Bitbucket Cloud (scoped API token):  ATLASSIAN_USER_EMAIL + ATLASSIAN_API_TOKEN',
 		);
 		cliLines.push(
-			'- ATLASSIAN_BITBUCKET_USERNAME and ATLASSIAN_BITBUCKET_APP_PASSWORD',
+			'Bitbucket Cloud (legacy app password): ATLASSIAN_BITBUCKET_USERNAME + ATLASSIAN_BITBUCKET_APP_PASSWORD',
+		);
+		cliLines.push(
+			'Bitbucket Data Center / Server: BITBUCKET_DC_BASE_URL + BITBUCKET_DC_TOKEN (PAT)',
+		);
+		cliLines.push(
+			'  or: BITBUCKET_DC_BASE_URL + BITBUCKET_DC_USERNAME + BITBUCKET_DC_PASSWORD',
 		);
 	} else if (mcpError.type === ErrorType.AUTH_INVALID) {
 		cliLines.push(

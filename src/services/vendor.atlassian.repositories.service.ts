@@ -8,6 +8,7 @@ import { Logger } from '../utils/logger.util.js';
 import {
 	fetchAtlassian,
 	getAtlassianCredentials,
+	isDataCenterMode,
 } from '../utils/transport.util.js';
 import {
 	validatePageSize,
@@ -237,7 +238,10 @@ async function get(params: GetRepositoryParams): Promise<Repository> {
 		);
 	}
 
-	const path = `${API_PATH}/repositories/${params.workspace}/${params.repo_slug}`;
+	const isDc = isDataCenterMode();
+	const path = isDc
+		? `/rest/api/1.0/projects/${params.workspace}/repos/${params.repo_slug}`
+		: `${API_PATH}/repositories/${params.workspace}/${params.repo_slug}`;
 
 	methodLogger.debug(`Sending request to: ${path}`);
 	try {
@@ -245,6 +249,12 @@ async function get(params: GetRepositoryParams): Promise<Repository> {
 
 		// Validate response with Zod schema
 		try {
+			// Data Center returns a different response structure; skip strict
+			// Cloud schema validation and use the raw response (the clone
+			// controller only needs links.clone which both platforms provide).
+			if (isDc) {
+				return response.data as unknown as Repository;
+			}
 			const validatedData = RepositorySchema.parse(response.data);
 			return validatedData;
 		} catch (error) {
