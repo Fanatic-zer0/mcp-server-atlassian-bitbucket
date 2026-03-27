@@ -45,7 +45,7 @@ Choose **npx** (stdio, AI assistant config) or **Docker** (HTTP, team/server dep
 export BITBUCKET_DC_BASE_URL="https://bitbucket.company.com"
 export BITBUCKET_DC_TOKEN="your_personal_access_token"
 
-npx -y @roy/bitbucket-mcp
+npx -y @Fanatic-zer0/mcp-server-atlassian-bitbucket
 ```
 
 #### npx — Bitbucket Cloud
@@ -59,7 +59,7 @@ export ATLASSIAN_API_TOKEN="your_scoped_api_token"
 export ATLASSIAN_BITBUCKET_USERNAME="your_username"
 export ATLASSIAN_BITBUCKET_APP_PASSWORD="your_app_password"
 
-npx -y @roy/bitbucket-mcp
+npx -y @Fanatic-zer0/mcp-server-atlassian-bitbucket
 ```
 
 #### Docker — Bitbucket Data Center
@@ -85,6 +85,8 @@ Optional flags:
 docker run -p 3000:3000 \
   -e ATLASSIAN_USER_EMAIL=your@email.com \
   -e ATLASSIAN_API_TOKEN=your_scoped_api_token \
+  -e NODE_TLS_REJECT_UNAUTHORIZED=0  #### if SSL issue.
+  -e BITBUCKET_READ_ONLY=true
   mcp-server-atlassian-bitbucket
 ```
 
@@ -127,7 +129,7 @@ Add to `~/.claude/claude_desktop_config.json`:
   "mcpServers": {
     "bitbucket": {
       "command": "npx",
-      "args": ["-y", "@roy/bitbucket-mcp"],
+      "args": ["-y", "@Fanatic-zer0/mcp-server-atlassian-bitbucket],
       "env": {
         "BITBUCKET_DC_BASE_URL": "https://bitbucket.company.com",
         "BITBUCKET_DC_TOKEN": "your_personal_access_token"
@@ -143,7 +145,7 @@ Add to `~/.claude/claude_desktop_config.json`:
   "mcpServers": {
     "bitbucket": {
       "command": "npx",
-      "args": ["-y", "@roy/bitbucket-mcp"],
+      "args": ["-y", "@Fanatic-zer0/mcp-server-atlassian-bitbucket"],
       "env": {
         "ATLASSIAN_USER_EMAIL": "your.email@company.com",
         "ATLASSIAN_API_TOKEN": "your_scoped_api_token"
@@ -159,7 +161,7 @@ Add to `~/.claude/claude_desktop_config.json`:
   "mcpServers": {
     "bitbucket": {
       "command": "npx",
-      "args": ["-y", "npx -y @roy/bitbucket-mcp"],
+      "args": ["-y", "npx -y @Fanatic-zer0/mcp-server-atlassian-bitbucket"],
       "env": {
         "ATLASSIAN_BITBUCKET_USERNAME": "your_username",
         "ATLASSIAN_BITBUCKET_APP_PASSWORD": "your_app_password"
@@ -171,10 +173,6 @@ Add to `~/.claude/claude_desktop_config.json`:
 
 Restart Claude Desktop after saving.
 
-### Other AI Assistants (Cursor, Cline, Continue.dev, etc.)
-
-Configure to run: `npx -y @roy/bitbucket-mcp` with the env vars above.
-Or point to your Docker container's HTTP endpoint: `http://localhost:3000/mcp`.
 
 ### Config File (system-wide)
 
@@ -191,8 +189,6 @@ Create `~/.mcp/configs.json`:
   }
 }
 ```
-
-Also accepted as key: `"atlassian-bitbucket"`, `"mcp-server-atlassian-bitbucket"`, or `"@aashari/mcp-server-atlassian-bitbucket"`.
 
 ---
 
